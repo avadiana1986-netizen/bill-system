@@ -180,6 +180,21 @@ tbody tr:nth-child(even) { background: var(--soft); }
 .unknown { background: var(--rose) !important; }
 .total { background: var(--gold) !important; font-weight: 700; }
 .search { width: 220px; }
+.person-ledger {
+  border-top: 1px solid var(--line);
+}
+.sub-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.sub-title span {
+  color: var(--muted);
+  font-size: 12px;
+}
 .row-actions {
   display: flex;
   gap: 6px;

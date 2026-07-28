@@ -8,6 +8,7 @@ let aliases = [];
 let entries = [];
 let shareRules = [];
 let currentUser = null;
+let pendingEntryPayload = null;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -60,6 +61,17 @@ function recognize(rawText) {
     .replace(/购买/g, "")
     .trim();
   return { person: match.person, itemName: itemName || rawText, status: "已识别" };
+}
+
+function guessNewPersonName(rawText) {
+  const compact = String(rawText || "").replace(/\s+/g, "").trim();
+  const match = compact.match(/^(百[\u4e00-\u9fa5A-Za-z0-9]{1,5}|白[\u4e00-\u9fa5A-Za-z0-9]{1,5}|缅籍[\u4e00-\u9fa5A-Za-z0-9]{0,4})/);
+  if (!match) return "";
+  return match[1]
+    .replace(/购买.*$/, "")
+    .replace(/充值.*$/, "")
+    .replace(/定制.*$/, "")
+    .replace(/新增.*$/, "");
 }
 
 function updatePreview(rawId, itemId, previewId) {
@@ -148,6 +160,7 @@ function render() {
 
   renderSummary(peopleRows, unknownEntries);
   renderPeople(peopleRows);
+  renderPersonLedger(peopleRows);
   renderLedger();
 }
 
@@ -188,20 +201,39 @@ function renderPeople(rows) {
     </tr>`).join("");
 }
 
+function ledgerRowHtml(e) {
+  const person = people.find((p) => p.id === e.person_id);
+  return `<tr class="${e.status === "未识别" ? "unknown" : ""}">
+    <td>${e.entry_date || ""}</td>
+    <td>${e.raw_text || ""}</td>
+    <td>${person?.name || ""}</td>
+    <td>${e.group_name || ""}</td>
+    <td>${fmt(e.amount)}</td>
+    <td>${e.status}</td>
+    <td><div class="row-actions"><button data-edit-only onclick="openEdit('${e.id}')" ${canEdit() ? "" : "disabled"}>修改</button><button data-edit-only class="danger" onclick="deleteEntry('${e.id}')" ${canEdit() ? "" : "disabled"}>删除</button></div></td>
+  </tr>`;
+}
+
+function renderPersonLedger(peopleRows) {
+  const keyword = norm($("personSearch").value);
+  if (!keyword) {
+    $("personLedgerSection").classList.add("hidden");
+    $("personLedgerBody").innerHTML = "";
+    return;
+  }
+  const matchedPeople = peopleRows.filter((r) => norm(r.name).includes(keyword) || norm(r.group_name).includes(keyword));
+  const ids = new Set(matchedPeople.map((p) => p.id));
+  const rows = entries.filter((e) => ids.has(e.person_id));
+  $("personLedgerSection").classList.remove("hidden");
+  $("personLedgerHint").textContent = rows.length ? `共 ${rows.length} 条明细` : "没有找到对应账单明细";
+  $("personLedgerBody").innerHTML = rows.map(ledgerRowHtml).join("");
+}
+
 function renderLedger() {
   const status = $("statusFilter").value;
   const rows = entries.filter((e) => !status || e.status === status);
   $("ledgerBody").innerHTML = rows.map((e) => {
-    const person = people.find((p) => p.id === e.person_id);
-    return `<tr class="${e.status === "未识别" ? "unknown" : ""}">
-      <td>${e.entry_date || ""}</td>
-      <td>${e.raw_text || ""}</td>
-      <td>${person?.name || ""}</td>
-      <td>${e.group_name || ""}</td>
-      <td>${fmt(e.amount)}</td>
-      <td>${e.status}</td>
-      <td><div class="row-actions"><button data-edit-only onclick="openEdit('${e.id}')" ${canEdit() ? "" : "disabled"}>修改</button><button data-edit-only class="danger" onclick="deleteEntry('${e.id}')" ${canEdit() ? "" : "disabled"}>删除</button></div></td>
-    </tr>`;
+    return ledgerRowHtml(e);
   }).join("");
 }
 
@@ -218,6 +250,13 @@ async function saveEntry(form) {
     group_name: result.person?.group_name || null,
     status: result.status,
   };
+  if (!result.person) {
+    pendingEntryPayload = payload;
+    $("newPersonName").value = guessNewPersonName(rawText);
+    $("newPersonMessage").textContent = `未识别到已登记人员：${rawText}`;
+    showModal("newPersonDialog");
+    return;
+  }
   const { error } = await db.from("ledger_entries").insert(payload);
   if (error) throw error;
   form.reset();
@@ -300,6 +339,48 @@ $("loginForm").addEventListener("submit", async (event) => {
   currentUser = data.user;
   hideModal("loginDialog");
   applyAuthState();
+  await loadAll();
+});
+$("cancelNewPerson").addEventListener("click", async () => {
+  if (!pendingEntryPayload) return hideModal("newPersonDialog");
+  const { error } = await db.from("ledger_entries").insert(pendingEntryPayload);
+  if (error) return alert(error.message);
+  pendingEntryPayload = null;
+  hideModal("newPersonDialog");
+  $("entryForm").reset();
+  $("entryDate").value = today();
+  await loadAll();
+});
+$("newPersonForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!pendingEntryPayload) return hideModal("newPersonDialog");
+  const name = $("newPersonName").value.trim();
+  const groupName = $("newPersonGroup").value;
+  if (!name) return alert("请填写新人姓名");
+  let person = people.find((p) => norm(p.name) === norm(name));
+  if (!person) {
+    const { data, error } = await db.from("people").insert({
+      name,
+      group_name: groupName,
+      active: true,
+      note: "新增账单时自动创建",
+    }).select("*").single();
+    if (error) return alert(error.message);
+    person = data;
+  }
+  const payload = {
+    ...pendingEntryPayload,
+    person_id: person.id,
+    group_name: person.group_name,
+    status: "已识别",
+    note: pendingEntryPayload.note || "创建新人时自动归属",
+  };
+  const { error } = await db.from("ledger_entries").insert(payload);
+  if (error) return alert(error.message);
+  pendingEntryPayload = null;
+  hideModal("newPersonDialog");
+  $("entryForm").reset();
+  $("entryDate").value = today();
   await loadAll();
 });
 $("rawText").addEventListener("input", () => updatePreview("rawText", "itemName", "recognitionPreview"));

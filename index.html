@@ -13,8 +13,17 @@
       <h1>账单系统</h1>
       <p>在线录入、自动归类、实时汇总</p>
     </div>
-    <div class="status" id="connectionStatus">连接中</div>
+    <div class="top-actions">
+      <div class="status" id="connectionStatus">连接中</div>
+      <button class="login-button" id="loginOpen" type="button">登录</button>
+      <button class="login-button hidden" id="logoutButton" type="button">退出</button>
+    </div>
   </header>
+
+  <section class="auth-bar" id="authBar">
+    <strong>当前为查看模式</strong>
+    <span>登录后可以新增、修改、删除账单。</span>
+  </section>
 
   <main class="layout">
     <section class="panel entry-panel">
@@ -40,7 +49,7 @@
           <input id="itemName" type="text" placeholder="自动提取，也可以手动改">
         </label>
         <div class="preview" id="recognitionPreview">等待输入内容</div>
-        <button type="submit">保存账单</button>
+        <button type="submit" data-edit-only>保存账单</button>
       </form>
     </section>
 
@@ -119,6 +128,19 @@
       <div class="dialog-actions">
         <button value="cancel" type="button" id="cancelEdit">取消</button>
         <button value="default" type="submit">保存修改</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="loginDialog">
+    <form method="dialog" id="loginForm" class="entry-form dialog-form">
+      <h2>登录账单系统</h2>
+      <label>邮箱<input id="loginEmail" type="email" placeholder="你的邮箱" required></label>
+      <label>密码<input id="loginPassword" type="password" placeholder="密码" required></label>
+      <div class="preview" id="loginMessage">请输入邮箱和密码</div>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" id="cancelLogin">取消</button>
+        <button value="default" type="submit">登录</button>
       </div>
     </form>
   </dialog>

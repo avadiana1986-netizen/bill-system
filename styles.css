@@ -35,6 +35,27 @@ h1, h2, p { margin: 0; }
   padding: 7px 13px;
   font-size: 13px;
 }
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.login-button {
+  height: 34px;
+  border: 1px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.14);
+}
+.hidden { display: none !important; }
+.auth-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 18px;
+  background: #fff2cc;
+  border-bottom: 1px solid #ead58c;
+  color: #5d4a00;
+  font-size: 13px;
+}
 .layout {
   display: grid;
   grid-template-columns: 380px 1fr;
@@ -92,6 +113,10 @@ button {
   color: white;
   font: inherit;
   cursor: pointer;
+}
+button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
 }
 button.secondary { background: var(--blue); }
 .preview {

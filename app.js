@@ -7,6 +7,7 @@ let people = [];
 let aliases = [];
 let entries = [];
 let shareRules = [];
+let currentUser = null;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -16,6 +17,19 @@ const today = () => new Date().toISOString().slice(0, 10);
 function setStatus(text, ok = true) {
   $("connectionStatus").textContent = text;
   $("connectionStatus").style.background = ok ? "rgba(255,255,255,.14)" : "#bd3b2f";
+}
+
+function canEdit() {
+  return Boolean(currentUser);
+}
+
+function applyAuthState() {
+  $("loginOpen").classList.toggle("hidden", canEdit());
+  $("logoutButton").classList.toggle("hidden", !canEdit());
+  $("authBar").classList.toggle("hidden", canEdit());
+  document.querySelectorAll("[data-edit-only]").forEach((el) => {
+    el.disabled = !canEdit();
+  });
 }
 
 function buildMatchers() {
@@ -178,12 +192,13 @@ function renderLedger() {
       <td>${e.group_name || ""}</td>
       <td>${fmt(e.amount)}</td>
       <td>${e.status}</td>
-      <td><div class="row-actions"><button onclick="openEdit('${e.id}')">修改</button><button class="danger" onclick="deleteEntry('${e.id}')">删除</button></div></td>
+      <td><div class="row-actions"><button data-edit-only onclick="openEdit('${e.id}')" ${canEdit() ? "" : "disabled"}>修改</button><button data-edit-only class="danger" onclick="deleteEntry('${e.id}')" ${canEdit() ? "" : "disabled"}>删除</button></div></td>
     </tr>`;
   }).join("");
 }
 
 async function saveEntry(form) {
+  if (!canEdit()) return alert("请先登录后再保存账单");
   const rawText = form.rawText.value.trim();
   const result = recognize(rawText);
   const payload = {
@@ -204,6 +219,7 @@ async function saveEntry(form) {
 }
 
 window.openEdit = (id) => {
+  if (!canEdit()) return alert("请先登录后再修改账单");
   const e = entries.find((x) => x.id === id);
   if (!e) return;
   $("editId").value = e.id;
@@ -216,6 +232,7 @@ window.openEdit = (id) => {
 };
 
 window.deleteEntry = async (id) => {
+  if (!canEdit()) return alert("请先登录后再删除账单");
   if (!confirm("确定删除这条账单吗？")) return;
   const { error } = await db.from("ledger_entries").delete().eq("id", id);
   if (error) alert(error.message);
@@ -233,6 +250,7 @@ $("entryForm").addEventListener("submit", async (event) => {
 
 $("editForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!canEdit()) return alert("请先登录后再修改账单");
   const rawText = $("editRawText").value.trim();
   const result = recognize(rawText);
   const payload = {
@@ -252,13 +270,47 @@ $("editForm").addEventListener("submit", async (event) => {
 });
 
 $("cancelEdit").addEventListener("click", () => $("editDialog").close());
+$("loginOpen").addEventListener("click", () => $("loginDialog").showModal());
+$("cancelLogin").addEventListener("click", () => $("loginDialog").close());
+$("logoutButton").addEventListener("click", async () => {
+  await db.auth.signOut();
+  currentUser = null;
+  applyAuthState();
+  await loadAll();
+});
+$("loginForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("loginMessage").textContent = "正在登录...";
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $("loginEmail").value.trim(),
+    password: $("loginPassword").value,
+  });
+  if (error) {
+    $("loginMessage").textContent = error.message;
+    return;
+  }
+  currentUser = data.user;
+  $("loginDialog").close();
+  applyAuthState();
+  await loadAll();
+});
 $("rawText").addEventListener("input", () => updatePreview("rawText", "itemName", "recognitionPreview"));
 $("editRawText").addEventListener("input", () => updatePreview("editRawText", "editItemName", "editPreview"));
 $("personSearch").addEventListener("input", render);
 $("statusFilter").addEventListener("change", renderLedger);
 
 $("entryDate").value = today();
-loadAll().catch((error) => {
+(async function init() {
+  const { data } = await db.auth.getSession();
+  currentUser = data.session?.user || null;
+  db.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    applyAuthState();
+    render();
+  });
+  applyAuthState();
+  await loadAll();
+})().catch((error) => {
   console.error(error);
   setStatus("连接失败", false);
   alert(error.message);

@@ -191,11 +191,21 @@ tbody tr:nth-child(even) { background: var(--soft); }
   font-size: 12px;
 }
 .danger { background: #bd3b2f; }
-dialog {
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(23,35,49,.36);
+}
+.dialog-form {
   width: min(520px, calc(100vw - 28px));
+  background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 0;
+  box-shadow: 0 22px 70px rgba(23,35,49,.2);
 }
 .dialog-form h2 { font-size: 18px; }
 .dialog-actions {

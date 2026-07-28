@@ -116,8 +116,8 @@
     </section>
   </main>
 
-  <dialog id="editDialog">
-    <form method="dialog" id="editForm" class="entry-form dialog-form">
+  <div id="editDialog" class="modal hidden">
+    <form id="editForm" class="entry-form dialog-form">
       <h2>修改账单</h2>
       <input type="hidden" id="editId">
       <label>日期<input id="editDate" type="date" required></label>
@@ -130,10 +130,10 @@
         <button value="default" type="submit">保存修改</button>
       </div>
     </form>
-  </dialog>
+  </div>
 
-  <dialog id="loginDialog">
-    <form method="dialog" id="loginForm" class="entry-form dialog-form">
+  <div id="loginDialog" class="modal hidden">
+    <form id="loginForm" class="entry-form dialog-form">
       <h2>登录账单系统</h2>
       <label>邮箱<input id="loginEmail" type="email" placeholder="你的邮箱" required></label>
       <label>密码<input id="loginPassword" type="password" placeholder="密码" required></label>
@@ -143,7 +143,7 @@
         <button value="default" type="submit">登录</button>
       </div>
     </form>
-  </dialog>
+  </div>
 
   <script src="./app.js"></script>
 </body>

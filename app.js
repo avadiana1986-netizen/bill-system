@@ -32,6 +32,14 @@ function applyAuthState() {
   });
 }
 
+function showModal(id) {
+  $(id).classList.remove("hidden");
+}
+
+function hideModal(id) {
+  $(id).classList.add("hidden");
+}
+
 function buildMatchers() {
   const map = [];
   for (const p of people) map.push({ key: norm(p.name), person: p });
@@ -199,13 +207,13 @@ function renderLedger() {
 
 async function saveEntry(form) {
   if (!canEdit()) return alert("请先登录后再保存账单");
-  const rawText = form.rawText.value.trim();
+  const rawText = $("rawText").value.trim();
   const result = recognize(rawText);
   const payload = {
-    entry_date: form.entryDate.value,
+    entry_date: $("entryDate").value,
     raw_text: rawText,
-    item_name: form.itemName.value.trim() || result.itemName,
-    amount: Number(form.amount.value || 0),
+    item_name: $("itemName").value.trim() || result.itemName,
+    amount: Number($("amount").value || 0),
     person_id: result.person?.id || null,
     group_name: result.person?.group_name || null,
     status: result.status,
@@ -228,7 +236,7 @@ window.openEdit = (id) => {
   $("editAmount").value = e.amount;
   $("editItemName").value = e.item_name || "";
   updatePreview("editRawText", "editItemName", "editPreview");
-  $("editDialog").showModal();
+  showModal("editDialog");
 };
 
 window.deleteEntry = async (id) => {
@@ -265,13 +273,13 @@ $("editForm").addEventListener("submit", async (event) => {
   };
   const { error } = await db.from("ledger_entries").update(payload).eq("id", $("editId").value);
   if (error) return alert(error.message);
-  $("editDialog").close();
+  hideModal("editDialog");
   await loadAll();
 });
 
-$("cancelEdit").addEventListener("click", () => $("editDialog").close());
-$("loginOpen").addEventListener("click", () => $("loginDialog").showModal());
-$("cancelLogin").addEventListener("click", () => $("loginDialog").close());
+$("cancelEdit").addEventListener("click", () => hideModal("editDialog"));
+$("loginOpen").addEventListener("click", () => showModal("loginDialog"));
+$("cancelLogin").addEventListener("click", () => hideModal("loginDialog"));
 $("logoutButton").addEventListener("click", async () => {
   await db.auth.signOut();
   currentUser = null;
@@ -290,7 +298,7 @@ $("loginForm").addEventListener("submit", async (event) => {
     return;
   }
   currentUser = data.user;
-  $("loginDialog").close();
+  hideModal("loginDialog");
   applyAuthState();
   await loadAll();
 });
